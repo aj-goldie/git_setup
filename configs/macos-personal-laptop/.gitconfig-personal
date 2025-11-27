@@ -1,0 +1,11 @@
+[user]
+    email = 101531405+aj-goldie@users.noreply.github.com
+
+[github]
+    user = aj-goldie
+
+# Rewrite HTTPS urls to Personal SSH Alias
+[url "git@github-personal:"]
+    insteadOf = https://github.com/
+
+

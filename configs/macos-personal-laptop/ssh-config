@@ -1,0 +1,36 @@
+# ===========================================
+# Global defaults for macOS Keychain integration
+# ===========================================
+Host *
+    AddKeysToAgent yes
+    UseKeychain yes
+    IdentitiesOnly yes
+
+# ===========================================
+# GitHub: Personal (aj-goldie)
+# ===========================================
+Host github-personal
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_personal
+
+# ===========================================
+# GitHub: Work (bai-admin)
+# ===========================================
+Host github-work
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_work
+
+# ===========================================
+# Other Hosts
+# ===========================================
+Host milkhouse_office
+    HostName 10.10.10.192
+    User ssh
+    IdentityFile ~/.ssh/id_rsa_milkhouse_office
+
+Host 192.53.122.192 
+    HostName 192.53.122.192
+    User root
+    ForwardAgent yes

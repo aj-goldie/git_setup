@@ -1,0 +1,40 @@
+[filter "lfs"]
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+
+[user]
+	name = Alex Goldsmith
+
+[core]
+	excludesfile = /Users/alexgoldsmith/.gitignore_global
+
+[difftool "sourcetree"]
+	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
+	path = 
+
+[mergetool "sourcetree"]
+	cmd = /Applications/Sourcetree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
+	trustExitCode = true
+
+[color]
+	ui = auto
+
+[init]
+	defaultBranch = main
+
+[commit]
+	template = /Users/alexgoldsmith/.stCommitMsg
+
+# ===========================================
+# Directory-based identity switching
+# ===========================================
+
+# Personal repos: ~/Software/
+[includeIf "gitdir:~/Software/"]
+	path = .gitconfig-personal
+
+# Work repos: ~/Software-Work/
+[includeIf "gitdir:~/Software-Work/"]
+	path = .gitconfig-work
