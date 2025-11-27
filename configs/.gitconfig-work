@@ -1,0 +1,9 @@
+[user]
+    email = alex.goldsmith@benefitsallin.com
+
+[github]
+    user = bai-admin
+
+# This rewrites HTTPS urls to your Work SSH Alias
+[url "git@github-work:"]
+    insteadOf = https://github.com/

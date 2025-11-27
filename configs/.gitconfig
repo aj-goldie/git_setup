@@ -1,0 +1,19 @@
+[safe]
+	directory = C:/Users/AlexGoldsmith/Documents/Software/bai_graph
+	directory = C:/Users/AlexGoldsmith/Documents/Software/initial_sync_system_setup_ad0nmr/docs/project/libs/microsoft_graph_docs
+	directory = C:/Users/AlexGoldsmith/Documents/Software/initial_sync_system_setup_ad0nmr
+	directory = C:/Users/AlexGoldsmith/Documents/Software/OutlookAddins/bai_data_excel_addin
+	directory = C:/Users/AlexGoldsmith/Documents/Software/sf_cdc
+	directory = C:/Users/AlexGoldsmith/Documents/Software/sf_cdc/pub_sub_api/pub-sub-api
+[user]
+	name = Alex Goldsmith
+
+# Work repos: C:\Users\AlexGoldsmith\Documents\Software\...
+[includeIf "gitdir:C:/Users/AlexGoldsmith/Documents/Software/"]
+    path = .gitconfig-work
+
+# Personal repos: C:\Users\AlexGoldsmith\Documents\Software - Personal\...
+[includeIf "gitdir:C:/Users/AlexGoldsmith/Documents/Software-Personal/"]
+    path = .gitconfig-personal
+[core]
+	sshCommand = C:/Windows/System32/OpenSSH/ssh.exe
