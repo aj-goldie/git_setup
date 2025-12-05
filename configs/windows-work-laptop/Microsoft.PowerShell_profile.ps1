@@ -203,5 +203,63 @@ if (Ensure-SshAgent) {
 
 
 
+# Clean folder utility (robocopy-based fast cleanup)
+function Clean-Folder {
+    <#
+    .SYNOPSIS
+    Fast folder cleanup using robocopy /MIR with an empty source.
+    
+    .PARAMETER Target
+    The folder to clean. Defaults to user Temp folder.
+    
+    .PARAMETER Aggressive
+    Use more threads for maximum throughput.
+    
+    .PARAMETER Force
+    Skip confirmation prompt for non-temp folders.
+    
+    .PARAMETER NoDefenderExclusion
+    Disable the default Defender exclusion (exclusion is ON by default).
+    
+    .PARAMETER DisableDefenderRealtime
+    Temporarily disable Defender real-time monitoring entirely.
+    
+    .EXAMPLE
+    Clean-Folder
+    Cleans user temp folder with Defender exclusion (default).
+    
+    .EXAMPLE
+    Clean-Folder -Target "D:\Cache" -Force
+    Cleans arbitrary folder without prompting.
+    
+    .EXAMPLE
+    Clean-Folder -NoDefenderExclusion
+    Cleans temp folder without adding Defender exclusion.
+    #>
+    param(
+        [string]$Target,
+        [switch]$Aggressive,
+        [switch]$Force,
+        [switch]$NoDefenderExclusion,
+        [switch]$DisableDefenderRealtime
+    )
+    
+    $scriptPath = "$env:USERPROFILE\Scripts\Clean-LocalTemp.ps1"
+    $params = @{}
+    if ($Target) { $params['Target'] = $Target }
+    if ($Aggressive) { $params['Aggressive'] = $true }
+    if ($Force) { $params['Force'] = $true }
+    if ($NoDefenderExclusion) { $params['NoDefenderExclusion'] = $true }
+    if ($DisableDefenderRealtime) { $params['DisableDefenderRealtime'] = $true }
+    
+    & $scriptPath @params
+}
+
+# Aliases for Clean-Folder
+Set-Alias -Name cleantemp -Value Clean-Folder -Description 'Fast folder cleanup using robocopy'
+Set-Alias -Name clt -Value Clean-Folder -Description 'Fast folder cleanup using robocopy'
+Set-Alias -Name cleanfolder -Value Clean-Folder -Description 'Fast folder cleanup using robocopy'
+Set-Alias -Name cleanf -Value Clean-Folder -Description 'Fast folder cleanup using robocopy'
+
 Write-Host "PowerShell Profile Loaded" -ForegroundColor Cyan
 
