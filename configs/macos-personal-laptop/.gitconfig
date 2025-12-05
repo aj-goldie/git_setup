@@ -9,6 +9,13 @@
 
 [core]
 	excludesfile = /Users/alexgoldsmith/.gitignore_global
+	attributesfile = ~/.gitattributes_nbstripout
+	hooksPath = ~/.githooks
+
+[filter "jupyter"]
+	clean = nbstripout-fast
+	smudge = cat
+	required = true
 
 [difftool "sourcetree"]
 	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
