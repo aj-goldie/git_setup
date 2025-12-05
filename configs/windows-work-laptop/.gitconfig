@@ -19,6 +19,7 @@
 	sshCommand = C:/Windows/System32/OpenSSH/ssh.exe
 	attributesfile = ~/.gitattributes_global
 	hooksPath = ~/.githooks
+	autocrlf = false
 
 [filter "jupyter"]
 	clean = nbstripout-fast
