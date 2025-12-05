@@ -1,4 +1,0 @@
-# Global gitattributes for Jupyter notebook output stripping
-# This file is used with core.attributesfile to apply to all repos
-*.ipynb filter=jupyter
-

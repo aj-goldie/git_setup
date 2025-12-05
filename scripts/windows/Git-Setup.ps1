@@ -15,7 +15,7 @@
     - .gitconfig, .gitconfig-personal, .gitconfig-work (user home)
     - gitconfig-system (Program Files\Git\etc)
     - Microsoft.PowerShell_profile.ps1 (Documents\PowerShell)
-    - .gitattributes_nbstripout, .githooks (shared configs)
+    - .gitattributes_global, .githooks (shared configs)
 #>
 
 $ErrorActionPreference = "Stop"
@@ -36,7 +36,7 @@ $configFiles = @(
 
 # Shared configs: symlink only (files already exist in repo)
 $sharedLinks = @(
-    @{System = "$env:USERPROFILE\.gitattributes_nbstripout"; Repo = "$sharedDir\.gitattributes_nbstripout"; Type = "File" },
+    @{System = "$env:USERPROFILE\.gitattributes_global"; Repo = "$sharedDir\.gitattributes_global"; Type = "File" },
     @{System = "$env:USERPROFILE\.githooks"; Repo = "$sharedDir\githooks"; Type = "Directory" }
 )
 

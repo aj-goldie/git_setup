@@ -16,7 +16,7 @@
 #   - .gitconfig, .gitconfig-personal, .gitconfig-work (user home)
 #   - ssh-config (~/.ssh/config)
 #   - load-github-keys.sh (~/.ssh/)
-#   - .gitattributes_nbstripout, .githooks (shared configs)
+#   - .gitattributes_global, .githooks (shared configs)
 #
 
 set -e
@@ -48,7 +48,7 @@ declare -A CONFIG_FILES=(
 
 # Shared configs: System -> Repo
 declare -A SHARED_LINKS=(
-    ["$HOME/.gitattributes_nbstripout"]="$SHARED_DIR/.gitattributes_nbstripout"
+    ["$HOME/.gitattributes_global"]="$SHARED_DIR/.gitattributes_global"
     ["$HOME/.githooks"]="$SHARED_DIR/githooks"
 )
 

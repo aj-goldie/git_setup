@@ -1,0 +1,5 @@
+# Global gitattributes - normalize all text files to LF
+* text=auto eol=lf
+
+# Jupyter notebooks: strip outputs + explicit text handling
+*.ipynb filter=jupyter text eol=lf

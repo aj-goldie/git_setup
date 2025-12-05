@@ -9,7 +9,7 @@
 
 [core]
 	excludesfile = /Users/alexgoldsmith/.gitignore_global
-	attributesfile = ~/.gitattributes_nbstripout
+	attributesfile = ~/.gitattributes_global
 	hooksPath = ~/.githooks
 
 [filter "jupyter"]
