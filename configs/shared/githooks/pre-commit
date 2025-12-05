@@ -1,0 +1,16 @@
+#!/bin/sh
+# Global pre-commit: strip outputs from staged .ipynb files via nbstripout-fast
+# Works on both macOS and Windows (Git for Windows runs hooks through POSIX sh)
+
+set -e
+
+# Get staged .ipynb files (Added, Copied, Modified, Renamed)
+git diff --cached --name-only --diff-filter=ACMR -z -- '*.ipynb' |
+  while IFS= read -r -d '' file; do
+    echo "nbstripout-fast: $file"
+    nbstripout-fast "$file"
+    git add "$file"
+  done
+
+exit 0
+

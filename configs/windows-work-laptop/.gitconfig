@@ -17,3 +17,10 @@
     path = .gitconfig-personal
 [core]
 	sshCommand = C:/Windows/System32/OpenSSH/ssh.exe
+	attributesfile = ~/.gitattributes_nbstripout
+	hooksPath = ~/.githooks
+
+[filter "jupyter"]
+	clean = nbstripout-fast
+	smudge = cat
+	required = true
