@@ -1,3 +1,16 @@
+# ===========================================
+# PATH Configuration - ensure ~/.local/bin is FIRST on PATH
+# ===========================================
+$localBin = "$env:USERPROFILE\.local\bin"
+if (Test-Path $localBin) {
+    if ($env:PATH -notlike "*$localBin*") {
+        # Not in PATH at all - prepend
+        $env:PATH = "$localBin;$env:PATH"
+    } elseif (-not $env:PATH.StartsWith($localBin)) {
+        # In PATH but not first - remove and prepend
+        $env:PATH = "$localBin;" + ($env:PATH -replace [regex]::Escape("$localBin;"), "" -replace [regex]::Escape(";$localBin"), "")
+    }
+}
 
 if ($env:TERM_PROGRAM -eq 'vscode' -or $env:TERM_PROGRAM -eq 'cursor') {
     function Prompt { "PS> " }

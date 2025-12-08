@@ -13,7 +13,7 @@
 	hooksPath = ~/.githooks
 
 [filter "jupyter"]
-	clean = nbstripout-fast
+	clean = nbstripout-safe
 	smudge = cat
 	required = true
 

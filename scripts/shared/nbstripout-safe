@@ -1,0 +1,41 @@
+#!/bin/bash
+# ===========================================
+# nbstripout-safe: Fault-tolerant notebook filter
+# ===========================================
+# Wraps nbstripout-fast with graceful JSON validation.
+# If notebook JSON is malformed, passes through unchanged
+# instead of crashing git operations.
+#
+# Usage (git filter - reads from stdin, writes to stdout):
+#   git config filter.jupyter.clean nbstripout-safe
+#
+# The filter reads from stdin and writes to stdout.
+# ===========================================
+
+set -o pipefail
+
+# Create temp file for input
+tmpfile=$(mktemp)
+trap "rm -f '$tmpfile'" EXIT
+
+# Read stdin to temp file
+cat > "$tmpfile"
+
+# Validate JSON structure using Python (most portable)
+if python3 -c "import json; json.load(open('$tmpfile'))" 2>/dev/null; then
+    # Valid JSON - run nbstripout-fast
+    if nbstripout-fast -t "$tmpfile" 2>/dev/null; then
+        exit 0
+    else
+        # nbstripout-fast failed for another reason - fallback to passthrough
+        echo "[nbstripout-safe] Warning: nbstripout-fast failed, passing through unchanged" >&2
+        cat "$tmpfile"
+        exit 0
+    fi
+else
+    # Invalid JSON - pass through unchanged with warning
+    echo "[nbstripout-safe] Warning: Malformed notebook JSON detected, passing through unchanged" >&2
+    cat "$tmpfile"
+    exit 0
+fi
+

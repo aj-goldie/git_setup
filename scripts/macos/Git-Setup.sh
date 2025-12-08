@@ -17,6 +17,7 @@
 #   - ssh-config (~/.ssh/config)
 #   - load-github-keys.sh (~/.ssh/)
 #   - .gitattributes_global, .githooks (shared configs)
+#   - nbstripout-safe (~/.local/bin/) - fault-tolerant notebook filter
 #
 
 set -e
@@ -35,6 +36,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 REPO_DIR="$REPO_ROOT/configs/macos-personal-laptop"
 SHARED_DIR="$REPO_ROOT/configs/shared"
 SCRIPTS_DIR="$REPO_ROOT/scripts/macos"
+SHARED_SCRIPTS_DIR="$REPO_ROOT/scripts/shared"
 BACKUP_DIR="$HOME/.git-setup-backup-$(date +%Y%m%d-%H%M%S)"
 
 # Files that should be symlinked: System -> Repo
@@ -50,6 +52,11 @@ declare -A CONFIG_FILES=(
 declare -A SHARED_LINKS=(
     ["$HOME/.gitattributes_global"]="$SHARED_DIR/.gitattributes_global"
     ["$HOME/.githooks"]="$SHARED_DIR/githooks"
+)
+
+# Executable scripts: ~/.local/bin -> Repo
+declare -A BIN_SCRIPTS=(
+    ["$HOME/.local/bin/nbstripout-safe"]="$SHARED_SCRIPTS_DIR/nbstripout-safe"
 )
 
 # === HELPER FUNCTIONS ===
@@ -114,6 +121,89 @@ fi
 # Ensure ~/.ssh exists
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
+
+# Ensure ~/.local/bin exists (for executable scripts)
+mkdir -p "$HOME/.local/bin"
+
+# === PHASE 0: PREREQUISITES (uv, Python, nbstripout-fast) ===
+echo -e "${YELLOW}[Phase 0] Checking prerequisites...${NC}"
+echo ""
+
+LOCAL_BIN="$HOME/.local/bin"
+SHELL_PROFILE="$HOME/.zshrc"
+PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
+
+# --- Step 1: Check/install uv ---
+if command -v uv &> /dev/null; then
+    status_msg "OK" "uv is installed"
+else
+    echo -e "  ${CYAN}Installing uv...${NC}"
+    if curl -LsSf https://astral.sh/uv/install.sh | sh 2>&1; then
+        # Source the env file that uv installer creates
+        [[ -f "$LOCAL_BIN/env" ]] && source "$LOCAL_BIN/env"
+        status_msg "OK" "uv installed"
+    else
+        status_msg "ERROR" "Failed to install uv"
+        exit 1
+    fi
+fi
+
+# --- Step 2: Check/fix PATH order - ~/.local/bin should be first ---
+FIRST_PATH_ENTRY=$(echo "$PATH" | cut -d: -f1)
+if [[ "$FIRST_PATH_ENTRY" == "$LOCAL_BIN" ]]; then
+    status_msg "OK" "~/.local/bin is first on PATH"
+else
+    status_msg "ACTION" "~/.local/bin is NOT first on PATH - fixing..."
+    
+    # Add to shell profile if not already there (at the END to ensure it's last evaluated = first on PATH)
+    if ! grep -qF '.local/bin:$PATH' "$SHELL_PROFILE" 2>/dev/null; then
+        echo -e "  ${CYAN}Adding PATH line to $SHELL_PROFILE...${NC}"
+        echo "" >> "$SHELL_PROFILE"
+        echo "# Ensure ~/.local/bin is first on PATH (added by Git-Setup)" >> "$SHELL_PROFILE"
+        echo "$PATH_LINE" >> "$SHELL_PROFILE"
+    fi
+    
+    # Re-source the profile to apply changes NOW
+    echo -e "  ${CYAN}Re-sourcing $SHELL_PROFILE...${NC}"
+    export PATH="$LOCAL_BIN:$PATH"
+    status_msg "OK" "PATH updated - ~/.local/bin is now first"
+fi
+
+# --- Step 3: Install Python 3.12 via uv ---
+echo -e "  ${CYAN}Ensuring Python 3.12 is installed via uv...${NC}"
+if uv python install 3.12 --default --preview 2>&1 | grep -q "already"; then
+    status_msg "OK" "Python 3.12 already installed"
+else
+    status_msg "OK" "Python 3.12 installed"
+fi
+
+# --- Step 4: Verify python executables exist (AFTER PATH is correct) ---
+if [[ -x "$LOCAL_BIN/python" ]]; then
+    status_msg "OK" "~/.local/bin/python exists"
+else
+    status_msg "INFO" "~/.local/bin/python not found (uv may use different location)"
+fi
+
+if [[ -x "$LOCAL_BIN/python3" ]]; then
+    status_msg "OK" "~/.local/bin/python3 exists"
+else
+    status_msg "INFO" "~/.local/bin/python3 not found (uv may use different location)"
+fi
+
+# --- Step 5: Check/install nbstripout-fast via uv tool ---
+if [[ -x "$LOCAL_BIN/nbstripout-fast" ]]; then
+    status_msg "OK" "nbstripout-fast is installed"
+else
+    echo -e "  ${CYAN}Installing nbstripout-fast via uv...${NC}"
+    if uv tool install nbstripout-fast 2>&1; then
+        status_msg "OK" "nbstripout-fast installed"
+    else
+        status_msg "ERROR" "Failed to install nbstripout-fast"
+        exit 1
+    fi
+fi
+
+echo ""
 
 # === PHASE 1: ANALYZE CURRENT STATE ===
 echo -e "${YELLOW}[Phase 1] Analyzing current state...${NC}"
@@ -207,6 +297,44 @@ for sys_path in "${!SHARED_LINKS[@]}"; do
     fi
 done
 
+# Check bin scripts (~/.local/bin)
+echo ""
+for sys_path in "${!BIN_SCRIPTS[@]}"; do
+    repo_path="${BIN_SCRIPTS[$sys_path]}"
+    name="$(basename "$sys_path")"
+    
+    sys_exists=$([[ -e "$sys_path" || -L "$sys_path" ]] && echo true || echo false)
+    repo_exists=$([[ -e "$repo_path" ]] && echo true || echo false)
+    sys_is_symlink=$(is_symlink "$sys_path" && echo true || echo false)
+    symlink_target="$(get_symlink_target "$sys_path")"
+    
+    if [[ "$repo_exists" == "false" ]]; then
+        status_msg "ERROR" "$name - MISSING from repo (bin script)"
+        echo -e "       ${GRAY}Expected: $repo_path${NC}"
+        echo ""
+        echo -e "${RED}ERROR: Bin script missing from repo.${NC}"
+        exit 1
+    elif [[ "$sys_is_symlink" == "true" ]]; then
+        if paths_equal "$symlink_target" "$repo_path" || [[ "$symlink_target" == "$repo_path" ]]; then
+            status_msg "OK" "$name - symlink points to repo"
+        else
+            status_msg "ACTION" "$name - symlink points to WRONG target, will RELINK"
+            echo -e "       ${GRAY}Current:  $symlink_target${NC}"
+            echo -e "       ${GRAY}Expected: $repo_path${NC}"
+            needs_action=true
+            actions+=("RELINK:$sys_path:$repo_path")
+        fi
+    elif [[ "$sys_exists" == "true" && "$sys_is_symlink" == "false" ]]; then
+        status_msg "ACTION" "$name - needs REPLACE with symlink"
+        needs_action=true
+        actions+=("BIN:$sys_path:$repo_path")
+    elif [[ "$sys_exists" == "false" ]]; then
+        status_msg "ACTION" "$name - needs SYMLINK"
+        needs_action=true
+        actions+=("BIN:$sys_path:$repo_path")
+    fi
+done
+
 # === PHASE 2: EXECUTE OR EXIT ===
 echo ""
 
@@ -258,6 +386,15 @@ for action in "${actions[@]}"; do
             ln -s "$repo_path" "$sys_path"
             echo -e "    ${GREEN}Symlinked${NC}"
             ;;
+        "BIN")
+            echo -e "  ${CYAN}Setting up bin script $name...${NC}"
+            if [[ -e "$sys_path" ]]; then
+                cp "$sys_path" "$BACKUP_DIR/$name"
+                rm -f "$sys_path"
+            fi
+            ln -s "$repo_path" "$sys_path"
+            echo -e "    ${GREEN}Symlinked${NC}"
+            ;;
     esac
 done
 
@@ -290,6 +427,24 @@ done
 
 for sys_path in "${!SHARED_LINKS[@]}"; do
     repo_path="${SHARED_LINKS[$sys_path]}"
+    name="$(basename "$sys_path")"
+    
+    if is_symlink "$sys_path"; then
+        target="$(get_symlink_target "$sys_path")"
+        if paths_equal "$target" "$repo_path" || [[ "$target" == "$repo_path" ]]; then
+            status_msg "OK" "$name -> repo"
+        else
+            status_msg "ERROR" "$name -> WRONG TARGET"
+            all_good=false
+        fi
+    else
+        status_msg "ERROR" "$name - NOT a symlink"
+        all_good=false
+    fi
+done
+
+for sys_path in "${!BIN_SCRIPTS[@]}"; do
+    repo_path="${BIN_SCRIPTS[$sys_path]}"
     name="$(basename "$sys_path")"
     
     if is_symlink "$sys_path"; then
