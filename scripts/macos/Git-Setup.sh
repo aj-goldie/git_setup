@@ -131,7 +131,23 @@ echo ""
 
 LOCAL_BIN="$HOME/.local/bin"
 SHELL_PROFILE="$HOME/.zshrc"
-PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
+
+# Smart PATH block that ensures first position (handles both "not in PATH" and "in PATH but not first")
+PATH_BLOCK='
+# Ensure ~/.local/bin is FIRST on PATH (added by Git-Setup)
+if [[ -d "$HOME/.local/bin" ]]; then
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*)
+            # Already in PATH - remove and prepend to ensure first position
+            PATH=$(echo ":$PATH:" | sed "s|:$HOME/.local/bin:|:|g" | sed '"'"'s/^://;s/:$//'"'"')
+            export PATH="$HOME/.local/bin:$PATH"
+            ;;
+        *)
+            # Not in PATH - prepend
+            export PATH="$HOME/.local/bin:$PATH"
+            ;;
+    esac
+fi'
 
 # --- Step 1: Check/install uv ---
 if command -v uv &> /dev/null; then
@@ -155,16 +171,17 @@ if [[ "$FIRST_PATH_ENTRY" == "$LOCAL_BIN" ]]; then
 else
     status_msg "ACTION" "~/.local/bin is NOT first on PATH - fixing..."
     
-    # Add to shell profile if not already there (at the END to ensure it's last evaluated = first on PATH)
-    if ! grep -qF '.local/bin:$PATH' "$SHELL_PROFILE" 2>/dev/null; then
-        echo -e "  ${CYAN}Adding PATH line to $SHELL_PROFILE...${NC}"
-        echo "" >> "$SHELL_PROFILE"
-        echo "# Ensure ~/.local/bin is first on PATH (added by Git-Setup)" >> "$SHELL_PROFILE"
-        echo "$PATH_LINE" >> "$SHELL_PROFILE"
+    # Check if our smart PATH block already exists in profile
+    if ! grep -q 'Ensure.*\.local/bin.*FIRST on PATH' "$SHELL_PROFILE" 2>/dev/null; then
+        echo -e "  ${CYAN}Adding smart PATH block to $SHELL_PROFILE...${NC}"
+        # Ensure profile directory exists
+        mkdir -p "$(dirname "$SHELL_PROFILE")"
+        echo "$PATH_BLOCK" >> "$SHELL_PROFILE"
     fi
     
-    # Re-source the profile to apply changes NOW
-    echo -e "  ${CYAN}Re-sourcing $SHELL_PROFILE...${NC}"
+    # Apply PATH fix NOW for this session (remove from current position if present, then prepend)
+    echo -e "  ${CYAN}Applying PATH fix to current session...${NC}"
+    PATH=$(echo ":$PATH:" | sed "s|:$LOCAL_BIN:|:|g" | sed 's/^://;s/:$//')
     export PATH="$LOCAL_BIN:$PATH"
     status_msg "OK" "PATH updated - ~/.local/bin is now first"
 fi
