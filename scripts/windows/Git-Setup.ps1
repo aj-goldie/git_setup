@@ -220,14 +220,12 @@ foreach ($f in $configFiles) {
         Write-Status "$name - symlink points to repo" "OK"
     }
     elseif ($sysIsSymlink -and $symlinkTarget -ne $f.Repo) {
-        # Symlink exists but points somewhere else - ERROR
-        Write-Status "$name - symlink points to WRONG target: $symlinkTarget" "ERROR"
+        # Symlink exists but points somewhere else - relink it
+        Write-Status "$name - symlink points to WRONG target, will RELINK" "ACTION"
+        Write-Host "       Current:  $symlinkTarget" -ForegroundColor DarkGray
         Write-Host "       Expected: $($f.Repo)" -ForegroundColor DarkGray
-        Write-Host "`nERROR: Cannot proceed - symlink points to unexpected location." -ForegroundColor Red
-        Write-Host "Please manually verify and fix this before running again." -ForegroundColor Red
-        Write-Host "Press any key to exit..." -ForegroundColor DarkYellow
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        exit 1
+        $needsAction = $true
+        $actions += @{Type = "RELINK"; Config = $f }
     }
     elseif ($sysExists -and -not $sysIsSymlink -and $repoExists) {
         # Both exist as real files - need to decide which to keep
@@ -279,13 +277,11 @@ foreach ($s in $sharedLinks) {
         Write-Status "$name - symlink points to repo" "OK"
     }
     elseif ($sysIsSymlink -and ($symlinkTarget -ne $s.Repo)) {
-        Write-Status "$name - symlink points to WRONG target" "ERROR"
+        Write-Status "$name - symlink points to WRONG target, will RELINK" "ACTION"
         Write-Host "       Current:  $symlinkTarget" -ForegroundColor DarkGray
         Write-Host "       Expected: $($s.Repo)" -ForegroundColor DarkGray
-        Write-Host "`nERROR: Shared config symlink points to wrong location." -ForegroundColor Red
-        Write-Host "Press any key to exit..." -ForegroundColor DarkYellow
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        exit 1
+        $needsAction = $true
+        $actions += @{Type = "RELINK_SHARED"; Config = $s }
     }
     elseif ($sysExists -and -not $sysIsSymlink) {
         Write-Status "$name - needs REPLACE with symlink" "ACTION"
@@ -400,6 +396,29 @@ foreach ($action in $actions) {
             }
             New-Item -ItemType SymbolicLink -Path $action.Config.System -Target $action.Config.Repo -Force | Out-Null
             Write-Host "    Symlinked" -ForegroundColor Green
+        }
+        "RELINK" {
+            # Remove old symlink, create new one (for config files)
+            Write-Host "  Fixing symlink for $name..." -ForegroundColor Cyan
+            $oldTarget = Get-SymlinkTarget $action.Config.System
+            Add-Content "$backup\relinked.txt" "$($action.Config.System) -> $oldTarget"
+            Remove-Item $action.Config.System -Force
+            New-Item -ItemType SymbolicLink -Path $action.Config.System -Target $action.Config.Repo -Force | Out-Null
+            Write-Host "    Relinked (old target logged)" -ForegroundColor Green
+        }
+        "RELINK_SHARED" {
+            # Remove old symlink, create new one (for shared configs - may be file or directory)
+            Write-Host "  Fixing symlink for $name..." -ForegroundColor Cyan
+            $oldTarget = Get-SymlinkTarget $action.Config.System
+            Add-Content "$backup\relinked.txt" "$($action.Config.System) -> $oldTarget"
+            Remove-Item $action.Config.System -Force
+            if ($action.Config.Type -eq "Directory") {
+                cmd /c mklink /J "$($action.Config.System)" "$($action.Config.Repo)" | Out-Null
+            }
+            else {
+                New-Item -ItemType SymbolicLink -Path $action.Config.System -Target $action.Config.Repo -Force | Out-Null
+            }
+            Write-Host "    Relinked (old target logged)" -ForegroundColor Green
         }
         "RELINK_BIN" {
             # Remove old symlink, create new one
