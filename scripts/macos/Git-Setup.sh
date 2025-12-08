@@ -136,12 +136,12 @@ for sys_path in "${!CONFIG_FILES[@]}"; do
         if paths_equal "$symlink_target" "$repo_path" || [[ "$symlink_target" == "$repo_path" ]]; then
             status_msg "OK" "$name - symlink points to repo"
         else
-            status_msg "ERROR" "$name - symlink points to WRONG target: $symlink_target"
+            # Symlink exists but points to wrong target - auto-fix it
+            status_msg "ACTION" "$name - symlink points to WRONG target, will RELINK"
+            echo -e "       ${GRAY}Current:  $symlink_target${NC}"
             echo -e "       ${GRAY}Expected: $repo_path${NC}"
-            echo ""
-            echo -e "${RED}ERROR: Cannot proceed - symlink points to unexpected location.${NC}"
-            echo -e "${RED}Please manually verify and fix this before running again.${NC}"
-            exit 1
+            needs_action=true
+            actions+=("RELINK:$sys_path:$repo_path")
         fi
     elif [[ "$sys_exists" == "true" && "$sys_is_symlink" == "false" && "$repo_exists" == "true" ]]; then
         # Both exist as real files - need to decide which to keep
@@ -189,12 +189,12 @@ for sys_path in "${!SHARED_LINKS[@]}"; do
         if paths_equal "$symlink_target" "$repo_path" || [[ "$symlink_target" == "$repo_path" ]]; then
             status_msg "OK" "$name - symlink points to repo"
         else
-            status_msg "ERROR" "$name - symlink points to WRONG target"
+            # Symlink exists but points to wrong target - auto-fix it
+            status_msg "ACTION" "$name - symlink points to WRONG target, will RELINK"
             echo -e "       ${GRAY}Current:  $symlink_target${NC}"
             echo -e "       ${GRAY}Expected: $repo_path${NC}"
-            echo ""
-            echo -e "${RED}ERROR: Shared config symlink points to wrong location.${NC}"
-            exit 1
+            needs_action=true
+            actions+=("RELINK:$sys_path:$repo_path")
         fi
     elif [[ "$sys_exists" == "true" && "$sys_is_symlink" == "false" ]]; then
         status_msg "ACTION" "$name - needs REPLACE with symlink"
@@ -240,6 +240,14 @@ for action in "${actions[@]}"; do
             echo -e "  ${CYAN}Creating symlink for $name...${NC}"
             ln -s "$repo_path" "$sys_path"
             echo -e "    ${GREEN}Symlinked${NC}"
+            ;;
+        "RELINK")
+            echo -e "  ${CYAN}Fixing symlink for $name...${NC}"
+            old_target="$(readlink "$sys_path")"
+            echo "$sys_path -> $old_target" >> "$BACKUP_DIR/relinked.txt"
+            rm "$sys_path"
+            ln -s "$repo_path" "$sys_path"
+            echo -e "    ${GREEN}Relinked (old target logged)${NC}"
             ;;
         "SHARED")
             echo -e "  ${CYAN}Setting up shared config $name...${NC}"
