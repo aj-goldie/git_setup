@@ -188,7 +188,7 @@ function Clean-Folder {
         [switch]$DisableDefenderRealtime
     )
     
-    $scriptPath = "$env:USERPROFILE\Scripts\Clean-LocalTemp.ps1"
+    $scriptPath = "$env:USERPROFILE\Scripts\pwsh\Clean-LocalTemp.ps1"
     $params = @{}
     if ($Target) { $params['Target'] = $Target }
     if ($Aggressive) { $params['Aggressive'] = $true }
