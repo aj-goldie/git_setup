@@ -18,19 +18,15 @@ load_key_to_keychain() {
     if [[ -f "${key_path}.pub" ]]; then
         pub_content=$(cat "${key_path}.pub" | awk '{print $2}')
         if ssh-add -L 2>/dev/null | grep -q "$pub_content"; then
-            echo "✓ $key_name"
             return 0
         fi
     fi
     
     # Add to agent with Keychain storage (--apple-use-keychain for macOS 12+)
-    echo "🔑 Loading: $key_name"
     ssh-add --apple-use-keychain "$key_path" 2>/dev/null || ssh-add -K "$key_path" 2>/dev/null
 }
 
 # Load both GitHub keys
-echo "━━━ GitHub SSH Keys ━━━"
 load_key_to_keychain "$HOME/.ssh/id_ed25519_personal"
 load_key_to_keychain "$HOME/.ssh/id_ed25519_work"
-echo "━━━━━━━━━━━━━━━━━━━━━━━"
 
