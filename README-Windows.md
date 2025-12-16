@@ -25,7 +25,35 @@ The system determines your Git identity (`user.email`) and your SSH Identity Key
 
 ---
 
-## 3. The Editor Setup (Cursor 1.7)
+## 3. Shell Support
+
+This system works with **both PowerShell and Git Bash**. The same dual-identity configuration applies regardless of which shell you use.
+
+### PowerShell (Primary)
+- Configuration: `$PROFILE` (`Microsoft.PowerShell_profile.ps1`)
+- SSH Agent: Windows OpenSSH service (`ssh-agent`)
+- Keys are loaded automatically on shell startup
+
+### Git Bash (Git for Windows)
+- Configuration: `~/.bash_profile` (login) → `~/.bashrc` (all config)
+- SSH Agent: Uses Windows OpenSSH via `core.sshCommand` in `.gitconfig`
+- Direct `ssh` commands are wrapped to use Windows OpenSSH for consistency
+
+**Shell Startup Modes:**
+| Mode | Command | Sources |
+|------|---------|---------|
+| Interactive non-login | `bash` | `.bashrc` |
+| Login shell | `bash -l` | `.bash_profile` → `.bashrc` |
+| Login + command | `bash -lc "cmd"` | `.bash_profile` → `.bashrc` → runs cmd |
+| Non-interactive | `bash -c "cmd"` | `$BASH_ENV` only (if set) |
+
+The `.bash_profile` is configured to source `.bashrc`, ensuring all shell modes get the same PATH and configuration.
+
+**Key Point:** Both shells share the same Windows ssh-agent service. Keys loaded in PowerShell are available in Git Bash, and vice versa.
+
+---
+
+## 4. The Editor Setup (Cursor 1.7)
 Because VS Code/Cursor does not natively support context-aware multi-account switching for extensions, two separate instances are used.
 
 ### Instance A: "Cursor (Work)"
@@ -54,7 +82,7 @@ Because VS Code/Cursor does not natively support context-aware multi-account swi
 
 ---
 
-## 4. Operational Workflows
+## 5. Operational Workflows
 
 ### A. Cloning a Repository (The "Alias" Step)
 Because a `.git` folder does not exist yet during a clone, automatic detection fails. You must manually specify the **SSH Host Alias** to ensure the correct key is offered to GitHub.
@@ -91,24 +119,34 @@ git push
 
 ---
 
-## 5. Repository Contents
+## 6. Repository Contents
 
-This repository contains **hardlinked** copies of the actual configuration files. Changes made here will reflect in the live system files and vice versa.
+This repository contains **symlinked** configuration files. Changes made here will reflect in the live system files and vice versa.
 
 ```
-configs/
+configs/windows-work-laptop/
 ├── .gitconfig                      → C:\Users\AlexGoldsmith\.gitconfig
 ├── .gitconfig-personal             → C:\Users\AlexGoldsmith\.gitconfig-personal
 ├── .gitconfig-work                 → C:\Users\AlexGoldsmith\.gitconfig-work
+├── .bash_profile                   → C:\Users\AlexGoldsmith\.bash_profile (Git Bash login)
+├── .bashrc                         → C:\Users\AlexGoldsmith\.bashrc (Git Bash config)
 ├── gitconfig-system                → C:\Program Files\Git\etc\gitconfig
 └── Microsoft.PowerShell_profile.ps1 → C:\Users\AlexGoldsmith\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
+
+configs/shared/
+├── .gitattributes_global           → C:\Users\AlexGoldsmith\.gitattributes_global
+└── githooks/                       → C:\Users\AlexGoldsmith\.githooks\
+
+scripts/shared/
+├── nbstripout-safe                 → C:\Users\AlexGoldsmith\.local\bin\nbstripout-safe (bash)
+└── nbstripout-safe.cmd             → C:\Users\AlexGoldsmith\.local\bin\nbstripout-safe.cmd (cmd)
 ```
 
-> **Note:** Hardlinks are filesystem-level duplicates. The files in `configs/` ARE the same files on disk as the originals—not copies. Editing either location edits the same underlying data.
+> **Note:** Symlinks point from system locations TO repo files. The repo is the source of truth. Run `scripts/windows/Git-Setup.ps1` (as Administrator) to create/update all symlinks.
 
 ---
 
-## 6. Technical Configuration Reference
+## 7. Technical Configuration Reference
 
 ### A. SSH Configuration (`~/.ssh/config`)
 Defines aliases to force specific keys for specific "hosts".
@@ -177,7 +215,7 @@ Added on Nov 16, 2025
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 **Problem:** "Enter passphrase for key..." prompts when running Git commands.
 **Cause:** Git is ignoring the Windows SSH Agent and trying to read the encrypted file directly.
@@ -191,3 +229,28 @@ Added on Nov 16, 2025
 **Problem:** "Please tell me who you are" error on commit.
 **Cause:** You are trying to use Git outside of the designated `Software` or `Software-Personal` folders.
 **Fix:** Move your project into one of the designated folders.
+
+---
+
+### Git Bash-Specific Issues
+
+**Problem:** Git Bash doesn't seem to use the right SSH key.
+**Cause:** Git Bash has its own SSH, but Git operations use Windows OpenSSH via `core.sshCommand`.
+**Fix:** This is expected. Direct `ssh` commands in Git Bash are wrapped to use Windows OpenSSH. If you see issues, verify the `.bashrc` is properly symlinked: `ls -la ~/.bashrc`
+
+**Problem:** `nbstripout-safe` not found in Git Bash.
+**Cause:** `~/.local/bin` is not in PATH, or the bash script isn't symlinked.
+**Fix:** 
+1. Ensure `~/.bashrc` is symlinked: `ls -la ~/.bashrc`
+2. Source it: `source ~/.bashrc`
+3. Verify: `which nbstripout-safe`
+
+**Problem:** SSH keys not loaded in Git Bash.
+**Cause:** Keys are managed by Windows ssh-agent service, which must be started via PowerShell.
+**Fix:** Open PowerShell and run:
+```powershell
+Start-Service ssh-agent
+ssh-add ~/.ssh/id_ed25519_personal
+ssh-add ~/.ssh/id_ed25519_work
+```
+Then return to Git Bash. The keys persist in the Windows agent.

@@ -36,11 +36,16 @@ if (Test-Path($ChocolateyProfile)) {
 
 function vars { rundll32.exe sysdm.cpl,EditEnvironmentVariables }
 
+function credman {
+    Start-Process "control.exe" "keymgr.dll" -Verb RunAs
+}
+
 function start-server { 
     Set-Location C:\Users\AlexGoldsmith\Documents\Software\tablegpt_agent
     uv run src\tablegpt_agent_bai\start_server.py
 }
 
+Set-Alias -Name z -Value zoxide
 
 function cdd {
     <#
@@ -66,6 +71,8 @@ function cdd {
     Set-Location $Path
     Get-ChildItem
 }
+
+
 
 
 

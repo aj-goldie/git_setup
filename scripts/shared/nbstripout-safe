@@ -10,9 +10,29 @@
 #   git config filter.jupyter.clean nbstripout-safe
 #
 # The filter reads from stdin and writes to stdout.
+#
+# Works on: Linux, macOS, Windows (Git Bash)
 # ===========================================
 
 set -o pipefail
+
+# Find Python executable (Windows uses 'python', Unix uses 'python3')
+find_python() {
+    if command -v python3 &>/dev/null; then
+        echo "python3"
+    elif command -v python &>/dev/null; then
+        echo "python"
+    else
+        return 1
+    fi
+}
+
+PYTHON_CMD=$(find_python)
+if [[ -z "$PYTHON_CMD" ]]; then
+    echo "[nbstripout-safe] Warning: Python not found, passing through unchanged" >&2
+    cat
+    exit 0
+fi
 
 # Create temp file for input
 tmpfile=$(mktemp)
@@ -22,7 +42,7 @@ trap "rm -f '$tmpfile'" EXIT
 cat > "$tmpfile"
 
 # Validate JSON structure using Python (most portable)
-if python3 -c "import json; json.load(open('$tmpfile'))" 2>/dev/null; then
+if "$PYTHON_CMD" -c "import json; json.load(open(r'$tmpfile'))" 2>/dev/null; then
     # Valid JSON - run nbstripout-fast
     if nbstripout-fast -t "$tmpfile" 2>/dev/null; then
         exit 0

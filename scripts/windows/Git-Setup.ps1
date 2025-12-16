@@ -44,7 +44,14 @@ $sharedLinks = @(
 
 # Executable scripts: ~/.local/bin -> Repo (these go in PATH)
 $binScripts = @(
-    @{System = "$env:USERPROFILE\.local\bin\nbstripout-safe.cmd"; Repo = "$sharedScriptsDir\nbstripout-safe.cmd" }
+    @{System = "$env:USERPROFILE\.local\bin\nbstripout-safe.cmd"; Repo = "$sharedScriptsDir\nbstripout-safe.cmd" },
+    @{System = "$env:USERPROFILE\.local\bin\nbstripout-safe"; Repo = "$sharedScriptsDir\nbstripout-safe" }
+)
+
+# Git Bash config: ~/.bashrc, ~/.bash_profile -> Repo
+$bashConfigs = @(
+    @{System = "$env:USERPROFILE\.bashrc"; Repo = "$repoDir\.bashrc" },
+    @{System = "$env:USERPROFILE\.bash_profile"; Repo = "$repoDir\.bash_profile" }
 )
 
 # === HELPER FUNCTIONS ===
@@ -334,6 +341,46 @@ foreach ($b in $binScripts) {
     }
 }
 
+# Check Git Bash configs
+Write-Host ""
+Write-Host "Git Bash configuration:" -ForegroundColor Cyan
+foreach ($bc in $bashConfigs) {
+    $sysExists = Test-Path $bc.System
+    $repoExists = Test-Path $bc.Repo
+    $sysIsSymlink = Test-IsSymlink $bc.System
+    $symlinkTarget = Get-SymlinkTarget $bc.System
+    $name = Split-Path $bc.System -Leaf
+    
+    if (-not $repoExists) {
+        Write-Status "$name - MISSING from repo (bash config)" "ERROR"
+        Write-Host "       Expected: $($bc.Repo)" -ForegroundColor DarkGray
+        Write-Host "`nERROR: Bash config missing from repo." -ForegroundColor Red
+        Write-Host "Press any key to exit..." -ForegroundColor DarkYellow
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        exit 1
+    }
+    elseif ($sysIsSymlink -and ($symlinkTarget -eq $bc.Repo)) {
+        Write-Status "$name - symlink points to repo" "OK"
+    }
+    elseif ($sysIsSymlink -and ($symlinkTarget -ne $bc.Repo)) {
+        Write-Status "$name - symlink points to WRONG target, will RELINK" "ACTION"
+        Write-Host "       Current:  $symlinkTarget" -ForegroundColor DarkGray
+        Write-Host "       Expected: $($bc.Repo)" -ForegroundColor DarkGray
+        $needsAction = $true
+        $actions += @{Type = "RELINK_BASH"; Config = $bc }
+    }
+    elseif ($sysExists -and -not $sysIsSymlink) {
+        Write-Status "$name - EXISTS as real file, will BACKUP and REPLACE" "ACTION"
+        $needsAction = $true
+        $actions += @{Type = "BASH_REPLACE"; Config = $bc }
+    }
+    elseif (-not $sysExists) {
+        Write-Status "$name - needs SYMLINK" "ACTION"
+        $needsAction = $true
+        $actions += @{Type = "BASH"; Config = $bc }
+    }
+}
+
 # === PHASE 2: EXECUTE OR EXIT ===
 Write-Host ""
 
@@ -429,6 +476,29 @@ foreach ($action in $actions) {
             New-Item -ItemType SymbolicLink -Path $action.Config.System -Target $action.Config.Repo -Force | Out-Null
             Write-Host "    Relinked (old target logged)" -ForegroundColor Green
         }
+        "BASH" {
+            # Just create symlink for bash config
+            Write-Host "  Creating symlink for $name..." -ForegroundColor Cyan
+            New-Item -ItemType SymbolicLink -Path $action.Config.System -Target $action.Config.Repo -Force | Out-Null
+            Write-Host "    Symlinked" -ForegroundColor Green
+        }
+        "BASH_REPLACE" {
+            # Backup existing file, remove, create symlink
+            Write-Host "  Replacing $name with symlink..." -ForegroundColor Cyan
+            Copy-Item $action.Config.System "$backup\$name" -Force
+            Remove-Item $action.Config.System -Force
+            New-Item -ItemType SymbolicLink -Path $action.Config.System -Target $action.Config.Repo -Force | Out-Null
+            Write-Host "    Backed up and symlinked" -ForegroundColor Green
+        }
+        "RELINK_BASH" {
+            # Remove old symlink, create new one
+            Write-Host "  Fixing symlink for $name..." -ForegroundColor Cyan
+            $oldTarget = Get-SymlinkTarget $action.Config.System
+            Add-Content "$backup\relinked.txt" "$($action.Config.System) -> $oldTarget"
+            Remove-Item $action.Config.System -Force
+            New-Item -ItemType SymbolicLink -Path $action.Config.System -Target $action.Config.Repo -Force | Out-Null
+            Write-Host "    Relinked (old target logged)" -ForegroundColor Green
+        }
     }
 }
 
@@ -496,9 +566,32 @@ foreach ($b in $binScripts) {
     }
 }
 
+foreach ($bc in $bashConfigs) {
+    $name = Split-Path $bc.System -Leaf
+    if (Test-IsSymlink $bc.System) {
+        $target = Get-SymlinkTarget $bc.System
+        if ($target -eq $bc.Repo) {
+            Write-Status "$name -> repo (Git Bash)" "OK"
+        }
+        else {
+            Write-Status "$name -> WRONG TARGET" "ERROR"
+            $allGood = $false
+        }
+    }
+    else {
+        Write-Status "$name - NOT a symlink" "ERROR"
+        $allGood = $false
+    }
+}
+
 Write-Host ""
 if ($allGood) {
     Write-Host "Setup complete!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Git Bash support enabled:" -ForegroundColor Cyan
+    Write-Host "  - ~/.bashrc configured for Windows ssh-agent integration" -ForegroundColor DarkGray
+    Write-Host "  - nbstripout-safe (bash) available in ~/.local/bin" -ForegroundColor DarkGray
+    Write-Host "  - Git operations use Windows OpenSSH via core.sshCommand" -ForegroundColor DarkGray
 }
 else {
     Write-Host "Setup completed with errors - please review above." -ForegroundColor Red
