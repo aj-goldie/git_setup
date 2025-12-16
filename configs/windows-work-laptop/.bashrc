@@ -12,6 +12,29 @@
 #   - Non-interactive (-c): sources $BASH_ENV if set
 # ===========================================
 
+# Only apply Cursor-specific workarounds when launched from Cursor
+if [[ "${TERM_PROGRAM:-}" == "vscode" || "${TERM_PROGRAM:-}" == "cursor" ]]; then
+  # Stops Cursor Agent from injecting/propagating bracketed paste markers like [200~
+  bind 'set enable-bracketed-paste off'
+
+  PS1='${VIRTUAL_ENV:+(${VIRTUAL_ENV##*/}) }\u@\h:\w\$ '
+
+  # 1) Prevent Git from launching an interactive editor (vim/vi)
+  export GIT_EDITOR=true
+  export VISUAL=true
+  export EDITOR=true
+
+  # 2) Prevent interactive editor for rebase -i todo list
+  export GIT_SEQUENCE_EDITOR=true  # overrides sequence.editor :contentReference[oaicite:2]{index=2}
+
+  # 3) Prevent git merge from opening an editor for the merge message
+  export GIT_MERGE_AUTOEDIT=no
+
+  # 4) Prevent pagers (less) from grabbing the screen on log/diff/show, etc.
+  export GIT_PAGER=cat
+  export PAGER=cat
+fi
+
 # === PATH Configuration (runs for ALL shell types) ===
 # This section is safe for non-interactive shells and must run first
 # to ensure tools like nbstripout-safe are available for git filters.
@@ -92,10 +115,6 @@ ensure_ssh_keys() {
 alias sshkeys='ensure_ssh_keys'
 alias sshinfo='ensure_ssh_keys'
 
-# === Prompt (Optional - minimal for integrated terminals) ===
-if [[ "$TERM_PROGRAM" == "vscode" ]] || [[ "$TERM_PROGRAM" == "cursor" ]]; then
-    PS1='$ '
-fi
 
 # === Git Identity Status ===
 # Shows which git identity will be used in current directory
