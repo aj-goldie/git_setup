@@ -57,9 +57,8 @@ fi
 
 # Validate JSON structure using Python (most portable)
 if "$PYTHON_CMD" -c "import json; json.load(open(r'$tmpfile'))" 2>/dev/null; then
-    # Valid JSON - run nbstripout-fast
+    # Valid JSON - run nbstripout-fast (-t outputs to stdout AND modifies in place)
     if nbstripout-fast -t $EXTRA_ARGS "$tmpfile" 2>/dev/null; then
-        cat "$tmpfile"  # Output the stripped result to stdout
         exit 0
     else
         # nbstripout-fast failed for another reason - fallback to passthrough
