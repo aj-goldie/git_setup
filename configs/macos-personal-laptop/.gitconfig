@@ -15,7 +15,6 @@
 [filter "jupyter"]
 	clean = nbstripout-safe
 	smudge = cat
-	required = true
 
 [difftool "sourcetree"]
 	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
@@ -45,3 +44,5 @@
 # Work repos: ~/Software-Work/
 [includeIf "gitdir:~/Software-Work/"]
 	path = .gitconfig-work
+[pull]
+	rebase = false

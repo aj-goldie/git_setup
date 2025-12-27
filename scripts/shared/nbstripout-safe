@@ -6,10 +6,15 @@
 # If notebook JSON is malformed, passes through unchanged
 # instead of crashing git operations.
 #
+# GLOBAL DEFAULTS: Applied when repo has no .git-nbconfig.yaml
+#   - Strip outputs (default)
+#   - Strip execution counts (default)
+#   - Drop empty cells (--drop-empty-cells)
+#
+# Repos can override by adding their own .git-nbconfig.yaml
+#
 # Usage (git filter - reads from stdin, writes to stdout):
 #   git config filter.jupyter.clean nbstripout-safe
-#
-# The filter reads from stdin and writes to stdout.
 #
 # Works on: Linux, macOS, Windows (Git Bash)
 # ===========================================
@@ -41,10 +46,20 @@ trap "rm -f '$tmpfile'" EXIT
 # Read stdin to temp file
 cat > "$tmpfile"
 
+# Check if repo has its own config (let nbstripout-fast use it)
+# Otherwise apply global defaults via CLI
+EXTRA_ARGS=""
+if ! git rev-parse --show-toplevel &>/dev/null || \
+   [ ! -f "$(git rev-parse --show-toplevel 2>/dev/null)/.git-nbconfig.yaml" ]; then
+    # No repo config - apply global defaults
+    EXTRA_ARGS="--drop-empty-cells"
+fi
+
 # Validate JSON structure using Python (most portable)
 if "$PYTHON_CMD" -c "import json; json.load(open(r'$tmpfile'))" 2>/dev/null; then
     # Valid JSON - run nbstripout-fast
-    if nbstripout-fast -t "$tmpfile" 2>/dev/null; then
+    if nbstripout-fast -t $EXTRA_ARGS "$tmpfile" 2>/dev/null; then
+        cat "$tmpfile"  # Output the stripped result to stdout
         exit 0
     else
         # nbstripout-fast failed for another reason - fallback to passthrough
