@@ -46,3 +46,5 @@
 	path = .gitconfig-work
 [pull]
 	rebase = false
+[url "git@github-personal:aj-goldie/"]
+	insteadOf = git@github.com:aj-goldie/
